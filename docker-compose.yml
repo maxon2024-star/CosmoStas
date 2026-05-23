@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: cosmoscan
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - file-storing-service
+      - file-analysis-service
+
+  file-storing-service:
+    build: ./file-storing-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/cosmoscan
+      - SPRING_RABBITMQ_HOST=rabbitmq
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - shared_files:/app/uploads
+
+  file-analysis-service:
+    build: ./file-analysis-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/cosmoscan
+      - SPRING_RABBITMQ_HOST=rabbitmq
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - shared_files:/app/uploads
+
+volumes:
+  pg_data:
+  shared_files: # Общая папка для сервисов
